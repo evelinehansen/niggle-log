@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180">
+  <defs>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="180" y2="180">
+      <stop offset="0" stop-color="#72916B"/>
+      <stop offset="1" stop-color="#56704E"/>
+    </linearGradient>
+  </defs>
+  <rect width="180" height="180" rx="40" fill="url(#bg)"/>
+  <!-- The glyph: the pain mark. Three solid lightning bolts around a central
+       point they never touch, tips striking inward. One bolt is drawn above
+       the centre; the other two are the same bolt rotated. -->
+  <g fill="#F8F7F1">
+    <path d="M 80 30 L 100 30 L 93 48 L 102 47 L 89 73 L 91 53 L 81 54 Z"/>
+    <path d="M 80 30 L 100 30 L 93 48 L 102 47 L 89 73 L 91 53 L 81 54 Z" transform="rotate(120 90 90)"/>
+    <path d="M 80 30 L 100 30 L 93 48 L 102 47 L 89 73 L 91 53 L 81 54 Z" transform="rotate(240 90 90)"/>
+  </g>
+</svg>

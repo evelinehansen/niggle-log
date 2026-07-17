@@ -162,6 +162,20 @@ main {
   text-align: left;
 }
 .chip:hover { border-color: var(--ink-faint); }
+
+/* A dependent step inside a section: indented under a quiet question label,
+   with air above it so stacked chip groups read as separate choices. */
+.chip-subgroup {
+  margin-top: 0.9rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--line);
+}
+.subgroup-h {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.4rem;
+}
 .chip[aria-pressed="true"] {
   background: var(--sage-tint);
   border-color: var(--sage-deep);

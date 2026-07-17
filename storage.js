@@ -22,8 +22,10 @@ const ACTIVITY_KEYS = ACTIVITIES.map((a) => a.key);
 const DURATION_KEYS = DURATIONS.map((d) => d.key);
 const INTENSITY_KEYS = INTENSITIES.map((i) => i.key);
 
+// Schema version 2: `contexts` is an array (one or more), where version 1
+// stored a single `context` string. sanitize() migrates v1 records on read.
 export function emptyState() {
-  return { schemaVersion: 1, entries: [], sessions: [], dismissals: [] };
+  return { schemaVersion: 2, entries: [], sessions: [], dismissals: [] };
 }
 
 function validSite(region, subsite, side) {
@@ -76,7 +78,13 @@ export function sanitize(raw) {
     } else if (e.kind === "niggle") {
       if (!validSite(e.region, e.subsite, e.side)) { dropped++; continue; }
       if (![1, 2, 3].includes(e.severity)) { dropped++; continue; }
-      if (!CONTEXT_KEYS.includes(e.context)) { dropped++; continue; }
+      // v2 stores `contexts` as an array; a v1 record's single `context`
+      // string migrates to a one-element array. Kept in taxonomy order.
+      const rawContexts = Array.isArray(e.contexts)
+        ? e.contexts
+        : typeof e.context === "string" ? [e.context] : [];
+      const contexts = CONTEXT_KEYS.filter((k) => rawContexts.includes(k));
+      if (contexts.length === 0) { dropped++; continue; }
       out.entries.push({
         ...base,
         kind: "niggle",
@@ -84,7 +92,7 @@ export function sanitize(raw) {
         subsite: e.subsite,
         side: e.side,
         severity: e.severity,
-        context: e.context,
+        contexts,
         sensation: SENSATION_KEYS.includes(e.sensation) ? e.sensation : null,
         note: typeof e.note === "string" && e.note.trim() ? e.note.slice(0, 140) : null,
         sessionId:
@@ -180,7 +188,7 @@ export function setLastExportAt(iso) {
 
 export function buildExport(state, nowIso) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     exportedAt: nowIso,
     entries: state.entries,
     sessions: state.sessions,
@@ -201,10 +209,10 @@ export function parseImport(text) {
   if (!raw || typeof raw !== "object" || !("schemaVersion" in raw)) {
     return { ok: false, error: "That does not look like a Niggle Log export file." };
   }
-  if (raw.schemaVersion !== 1) {
+  if (raw.schemaVersion !== 1 && raw.schemaVersion !== 2) {
     return {
       ok: false,
-      error: `That file has schema version ${raw.schemaVersion}. This tool reads schema version 1.`,
+      error: `That file has schema version ${raw.schemaVersion}. This tool reads schema versions 1 and 2.`,
     };
   }
   const { state, dropped } = sanitize(raw);
@@ -222,7 +230,7 @@ export function merge(current, incoming) {
   const dismissalMap = new Map(current.dismissals.map((d) => [dKey(d), d]));
   for (const d of incoming.dismissals) dismissalMap.set(dKey(d), d);
   const merged = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     entries: [...entryMap.values()],
     sessions: [...sessionMap.values()],
     dismissals: [...dismissalMap.values()],

@@ -211,6 +211,7 @@ export const GLOSSARY = {
     ["Observed day", "A day with either a niggle or a clear day marker on it."],
     ["Site", "A region, a part of that region, and a side. Left knee front is one site. Right knee front is a different site."],
     ["Escalating", "The worst level logged at a site in the last 7 days is higher than the worst level in the 7 days before that."],
+    ["Persistent", "The same site logged on 5 or more days in a rolling 14 day window, at any severity, once at least 10 of those 14 days were observed."],
     ["Next morning", "Present when you woke up, before you did anything. Pain that is there before loading behaves differently from pain that arrives at minute 40."],
   ],
 };

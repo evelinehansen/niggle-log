@@ -19,24 +19,33 @@ Vanilla HTML, CSS and JavaScript as ES modules. No frameworks, no build step, no
 
 ## The model
 
-An entry is either a **niggle** (site, severity, context, optional sensation and note) or a **clear day** (you checked, nothing to report). Clear days are data: they are how the tool tells the difference between no pain and no logging, and they are the honest denominator behind every count.
+An entry is either a **niggle** (site, severity, one or more contexts for when it was felt, optional sensation and note) or a **clear day** (you checked, nothing to report). Clear days are data: they are how the tool tells the difference between no pain and no logging, and they are the honest denominator behind every count.
 
 A **site** is `region:subsite:side`, for example `knee:anterior:left`. Left and right are never merged. Side is never auto-defaulted. There is deliberately no "Other" region: an escape hatch destroys a controlled vocabulary.
 
 **Severity** is behavioural, not a pain scale: 1 of 3 noticed (you changed nothing), 2 of 3 adapted (you changed something), 3 of 3 stopped (it ended the activity). Behaviour is stable across months in a way a 10-point scale is not.
 
-**Sessions** are only ever collected through a three-tap prompt after saving an entry with context "after activity". Nothing uses them in v1; they exist because the load-coupling rule planned for v3 needs months of history that cannot be collected retroactively.
+**Sessions** are only ever collected through a three-tap prompt after saving an entry whose contexts include "after activity", plus a one-tap prompt that links a "next morning" entry to a session logged the day before, when one exists. Nothing uses them in v1; they exist because the load-coupling rule planned for v3 needs months of history that cannot be collected retroactively.
 
-## The detection rule (v1: Escalation)
+## The detection rules (Escalation and Persistence)
 
-One rule, chosen to fire rarely, computed fresh on every render and never stored. For one site over a 14-day window, it fires when all four hold:
+Two rules, chosen to fire rarely, computed fresh on every render and never stored.
+
+**Escalation** (a site getting worse). For one site over a 14-day window, it fires when all four hold:
 
 1. Niggles on at least 3 distinct days in the window.
 2. The most recent entry falls within the last 5 days.
 3. The most recent entry is severity 2 or 3.
 4. Max severity in the last 7 days is strictly greater than max severity in the prior 7 days (an empty half counts as 0, so a rapid onset fires).
 
-At most one flag is active at a time. Dismissing it ("Not now") suppresses that site and rule for 7 days, except that the flag re-fires immediately if severity climbs above what it was at dismissal. The flag states facts only: no risk numbers, no verdicts, no advice.
+**Persistence** (a site that will not go away). For one site over the same 14-day window, it fires when both hold:
+
+1. At least 10 of the 14 days are observed, so the window is trustworthy.
+2. Niggles at the site on at least 5 distinct days, at any severity.
+
+Next-morning days are not weighted into the threshold; the flag copy states how many of the logged days were already present on waking, and the reader concludes.
+
+At most one flag is active at a time, ranked escalation before persistence, then by latest severity, recency, distinct days, and site key so the card never flickers. Dismissing it ("Not now") suppresses that site and rule for 7 days, except that the flag re-fires immediately if severity climbs above what it was at dismissal. The flag states facts only: no risk numbers, no verdicts, no advice.
 
 A design note worth keeping: the flag card gets no animation. The one signature animation in this tool is the mark dropping into the last-7-days strip. Drama is precisely what a health flag must not have; the moment the tool exists for is the moment it must be quietest.
 

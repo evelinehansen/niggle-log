@@ -232,9 +232,57 @@ function escalationCandidates(entries, today) {
   return flags;
 }
 
+// The v2 rule: Persistence. Scope is one site key, window is 14 calendar
+// days. Chronicity matters independent of intensity: a 1 of 3 that never
+// goes away is worse news than a 3 of 3 that appears once and vanishes.
+// Fires only when both clauses hold:
+//   1. the window is trustworthy: at least 10 of the 14 days observed
+//   2. niggles at the site on at least 5 distinct days in the window
+// next_morning days do not lower the threshold; they are counted and
+// surfaced in the flag copy, so nothing is weighted out of sight.
+function persistenceCandidates(entries, today) {
+  if (observedDays(entries, 14, today) < 10) return []; // clause 1
+  const bySite = new Map();
+  for (const e of entries) {
+    if (e.kind !== "niggle") continue;
+    if (!inWindow(e.occurredOn, 14, today)) continue;
+    const key = siteKey(e);
+    if (!bySite.has(key)) bySite.set(key, []);
+    bySite.get(key).push(e);
+  }
+
+  const flags = [];
+  for (const [key, siteEntries] of bySite) {
+    const days = [...new Set(siteEntries.map((e) => e.occurredOn))].sort();
+    if (days.length < 5) continue; // clause 2
+
+    const latestOn = days[days.length - 1];
+    const latestSeverity = Math.max(
+      ...siteEntries.filter((e) => e.occurredOn === latestOn).map((e) => e.severity)
+    );
+    const morningDays = new Set(
+      siteEntries
+        .filter((e) => e.contexts.includes("next_morning"))
+        .map((e) => e.occurredOn)
+    );
+    flags.push({
+      rule: "persistence",
+      siteKey: key,
+      daysLogged: days.length,
+      windowDays: 14,
+      windowMax: Math.max(...siteEntries.map((e) => e.severity)),
+      morningCount: morningDays.size,
+      latestOn,
+      latestSeverity,
+    });
+  }
+  return flags;
+}
+
 // The current max severity at a flagged site over its window. Used both for
 // the dismissal cooldown break and for recording severityAtDismissal.
 export function flagWindowMax(flag) {
+  if (flag.rule === "persistence") return flag.windowMax;
   return Math.max(flag.recentMax, flag.priorMax);
 }
 
@@ -257,9 +305,13 @@ export function isDismissed(dismissals, siteKeyValue, rule, maxSeverityNow, toda
 }
 
 // Deterministic ranking so the flag never flickers between renders:
-// latest severity, then most recent entry, then distinct days, then site key.
+// rule strength, then latest severity, then most recent entry, then
+// distinct days, then site key.
+const RULE_STRENGTH = { escalation: 0, persistence: 1, migration: 2, load_coupling: 3 };
+
 function rankFlags(a, b) {
   return (
+    RULE_STRENGTH[a.rule] - RULE_STRENGTH[b.rule] ||
     b.latestSeverity - a.latestSeverity ||
     (a.latestOn < b.latestOn ? 1 : a.latestOn > b.latestOn ? -1 : 0) ||
     b.daysLogged - a.daysLogged ||
@@ -267,17 +319,39 @@ function rankFlags(a, b) {
   );
 }
 
-export function detectEscalation(entries, dismissals, today) {
-  const flags = escalationCandidates(entries, today)
+function undismissed(flags, dismissals, today) {
+  return flags
     .filter((f) => !isDismissed(dismissals, f.siteKey, f.rule, flagWindowMax(f), today))
     .sort(rankFlags);
-  return flags[0] || null;
 }
 
-// At most one active flag at a time. In v1 the only rule is escalation;
-// later rules slot in here below it in rank order.
+export function detectEscalation(entries, dismissals, today) {
+  return undismissed(escalationCandidates(entries, today), dismissals, today)[0] || null;
+}
+
+export function detectPersistence(entries, dismissals, today) {
+  return undismissed(persistenceCandidates(entries, today), dismissals, today)[0] || null;
+}
+
+// At most one active flag at a time, ranked across every rule together.
+// Dismissal is per (siteKey, rule), so dismissing a site's escalation card
+// can surface its persistence card; that is the PRD's spec, not a bug.
 export function activeFlag(entries, dismissals, today) {
-  return detectEscalation(entries, dismissals, today);
+  const all = [
+    ...escalationCandidates(entries, today),
+    ...persistenceCandidates(entries, today),
+  ];
+  return undismissed(all, dismissals, today)[0] || null;
+}
+
+// The most recently created session on a given day, or null. The next-morning
+// link prompt uses this to find yesterday's session.
+export function sessionOnDay(sessions, day) {
+  const matches = sessions.filter((s) => s.occurredOn === day);
+  if (matches.length === 0) return null;
+  return matches
+    .slice()
+    .sort((a, b) => ((a.createdAt || "") < (b.createdAt || "") ? 1 : -1))[0];
 }
 
 // ------------------------------------------------------------- housekeeping

@@ -92,6 +92,19 @@ function contextLabel(key) {
   return c ? c.label : key;
 }
 
+function contextsPhrase(keys) {
+  return keys.map((k) => contextLabel(k).toLowerCase()).join(", ");
+}
+
+// Membership toggle that keeps the result in taxonomy order, so "at rest,
+// next morning" never renders as "next morning, at rest".
+function toggleContext(keys, key) {
+  const wanted = new Set(keys);
+  if (wanted.has(key)) wanted.delete(key);
+  else wanted.add(key);
+  return CONTEXTS.map((c) => c.key).filter((k) => wanted.has(k));
+}
+
 function severityPhrase(sev) {
   const s = SEVERITIES.find((x) => x.value === sev);
   return `severity ${sev} of 3, ${s ? s.label.toLowerCase() : ""}`;
@@ -162,7 +175,9 @@ function viewToday() {
         el("span", { class: "serif", text: "Log the small things that have not stopped you." }),
         el("span", { text: "Location, how much it changed what you did, and when." }),
         el("br"),
-        el("span", { text: "After a couple of weeks, patterns start to be visible." })
+        el("span", { text: "After a couple of weeks, patterns start to be visible." }),
+        el("br"),
+        el("span", { text: "If one spot keeps coming back and gets worse across two weeks, a card will appear here showing you that record." })
       )
     );
   }
@@ -222,7 +237,15 @@ function markEl(kindClass, isToday) {
 function flagCard(flag) {
   // Pure fact, no verdict, no instruction. The user concludes.
   let body;
-  if (flag.priorMax > 0) {
+  if (flag.rule === "persistence") {
+    body = `Logged on ${flag.daysLogged} of the last 14 days. The worst level was ` +
+      `${flag.windowMax} of 3.`;
+    if (flag.morningCount === 1) {
+      body += " On 1 of those days it was already there when you woke up.";
+    } else if (flag.morningCount > 1) {
+      body += ` On ${flag.morningCount} of those days it was already there when you woke up.`;
+    }
+  } else if (flag.priorMax > 0) {
     body = `Logged on ${flag.daysLogged} of the last 14 days. The worst level was ` +
       `${flag.priorMax} of 3 in the first week and ${flag.recentMax} of 3 in the last 7 days.`;
   } else {
@@ -326,7 +349,7 @@ function logRow(e) {
     );
   }
   const session = e.sessionId ? data.sessions.find((s) => s.id === e.sessionId) : null;
-  const bits = [severityPhrase(e.severity), contextLabel(e.context).toLowerCase()];
+  const bits = [severityPhrase(e.severity), contextsPhrase(e.contexts)];
   if (session) {
     const act = ACTIVITIES.find((a) => a.key === session.activity);
     bits.push(act ? `session: ${act.label.toLowerCase()}` : "session logged");
@@ -489,7 +512,7 @@ function timelineSvg(tl) {
 function openLogForm(mode, entryId) {
   let f = {
     region: null, subsite: null, side: null,
-    severity: null, context: null, sensation: null,
+    severity: null, contexts: [], sensation: null,
     note: "", occurredOn: todayStr(),
   };
   let sessionDraft = null;
@@ -498,7 +521,7 @@ function openLogForm(mode, entryId) {
     if (!e || e.kind !== "niggle") return;
     f = {
       region: e.region, subsite: e.subsite, side: e.side,
-      severity: e.severity, context: e.context, sensation: e.sensation,
+      severity: e.severity, contexts: [...e.contexts], sensation: e.sensation,
       note: e.note || "", occurredOn: e.occurredOn,
     };
     const s = e.sessionId ? data.sessions.find((x) => x.id === e.sessionId) : null;
@@ -563,8 +586,8 @@ function formSheet(sheet) {
         onclick: () => { f.subsite = s.key; render(); },
       }));
     }
-    whereSection.append(subRow);
-    const sideRow = el("div", { class: "chip-row", style: "margin-top: 0.5rem" });
+    whereSection.append(subgroup(`Which part of the ${region.label.toLowerCase()}?`, subRow));
+    const sideRow = el("div", { class: "chip-row" });
     for (const sideKey of region.sides) {
       sideRow.append(el("button", {
         class: "chip", type: "button", "aria-pressed": f.side === sideKey ? "true" : "false",
@@ -572,7 +595,7 @@ function formSheet(sheet) {
         onclick: () => { f.side = sideKey; render(); },
       }));
     }
-    whereSection.append(sideRow);
+    whereSection.append(subgroup("Which side?", sideRow));
   }
   whereSection.append(el("button", {
     class: "quiet-link", type: "button", text: "What do these words mean?",
@@ -595,16 +618,16 @@ function formSheet(sheet) {
   }
   panel.append(section("How much did it change what you did?", sevWrap));
 
-  // Context.
+  // Context: multi-select, one or more.
   const ctxRow = el("div", { class: "chip-row" });
   for (const c of CONTEXTS) {
     ctxRow.append(el("button", {
-      class: "chip", type: "button", "aria-pressed": f.context === c.key ? "true" : "false",
+      class: "chip", type: "button", "aria-pressed": f.contexts.includes(c.key) ? "true" : "false",
       text: c.label,
-      onclick: () => { f.context = c.key; render(); },
+      onclick: () => { f.contexts = toggleContext(f.contexts, c.key); render(); },
     }));
   }
-  panel.append(section("When did you feel it?", ctxRow));
+  panel.append(section("When did you feel it? (all that apply)", ctxRow));
 
   // Sensation: optional, one tap, tap again to clear.
   const senRow = el("div", { class: "chip-row" });
@@ -653,7 +676,7 @@ function formSheet(sheet) {
   if (isEdit) panel.append(sessionSection(sheet));
 
   // Footer.
-  const valid = f.region && f.subsite && f.side && f.severity && f.context;
+  const valid = f.region && f.subsite && f.side && f.severity && f.contexts.length > 0;
   const saveBtn = el("button", {
     class: "btn primary", type: "button", text: "Save",
     onclick: () => saveForm(sheet),
@@ -684,12 +707,21 @@ function section(heading, ...children) {
   );
 }
 
+// A labelled step inside a section, for choices that only appear after an
+// earlier choice (part and side after region).
+function subgroup(label, row) {
+  return el("div", { class: "chip-subgroup" },
+    el("span", { class: "subgroup-h", text: label }),
+    row
+  );
+}
+
 function sessionSection(sheet) {
   const entry = data.entries.find((x) => x.id === sheet.entryId);
   const hasSession = entry && entry.sessionId;
 
   if (!hasSession && !sheet.sessionOpen) {
-    if (sheet.f.context !== "after_activity") return el("span", {});
+    if (!sheet.f.contexts.includes("after_activity")) return el("span", {});
     return section("Session",
       el("button", {
         class: "btn small", type: "button", text: "Add a session",
@@ -746,7 +778,7 @@ function saveForm(sheet) {
       id: uid("e_"), kind: "niggle", occurredOn: f.occurredOn,
       createdAt: nowIso(), editedAt: null,
       region: f.region, subsite: f.subsite, side: f.side,
-      severity: f.severity, context: f.context, sensation: f.sensation,
+      severity: f.severity, contexts: [...f.contexts], sensation: f.sensation,
       note, sessionId: null,
     };
     data.entries.push(savedEntry);
@@ -756,7 +788,7 @@ function saveForm(sheet) {
     Object.assign(savedEntry, {
       occurredOn: f.occurredOn, editedAt: nowIso(),
       region: f.region, subsite: f.subsite, side: f.side,
-      severity: f.severity, context: f.context, sensation: f.sensation,
+      severity: f.severity, contexts: [...f.contexts], sensation: f.sensation,
       note,
     });
     // Session changes made in the edit form.
@@ -788,13 +820,18 @@ function saveForm(sheet) {
   ui.sheet = null;
   if (savedEntry.occurredOn === todayStr()) ui.popToday = true;
 
-  // The session prompt appears only when a niggle is saved with
-  // context = after_activity, and only if that entry has no session yet.
-  if (mode === "create" && savedEntry.context === "after_activity" && !savedEntry.sessionId) {
+  // The session prompt appears only when a niggle is saved with a context
+  // including after_activity, and only if that entry has no session yet.
+  // Failing that, a next_morning niggle with a session logged yesterday
+  // gets the one-tap link prompt instead; the two never stack.
+  if (mode === "create" && savedEntry.contexts.includes("after_activity") && !savedEntry.sessionId) {
     ui.sheet = {
       type: "session-prompt", entryId: savedEntry.id,
       draft: { activity: null, durationBucket: null, intensity: null },
     };
+  } else if (mode === "create" && savedEntry.contexts.includes("next_morning") && !savedEntry.sessionId) {
+    const s = engine.sessionOnDay(data.sessions, engine.addDays(savedEntry.occurredOn, -1));
+    if (s) ui.sheet = { type: "link-prompt", entryId: savedEntry.id, sessionId: s.id };
   }
   render();
 }
@@ -832,6 +869,52 @@ function sessionPromptSheet(sheet) {
   return panel;
 }
 
+// ------------------------------------------------ next-morning link prompt
+
+function sessionSummary(s) {
+  const bits = [];
+  const act = ACTIVITIES.find((a) => a.key === s.activity);
+  if (act) bits.push(act.label);
+  const dur = DURATIONS.find((d) => d.key === s.durationBucket);
+  if (dur) bits.push(dur.label.toLowerCase());
+  const inten = INTENSITIES.find((i) => i.key === s.intensity);
+  if (inten) bits.push(inten.label.toLowerCase());
+  return bits.length > 0 ? bits.join(", ") : "a session";
+}
+
+function linkPromptSheet(sheet) {
+  const s = data.sessions.find((x) => x.id === sheet.sessionId);
+  // A back-dated entry links to the day before that entry, which is not
+  // "yesterday"; the copy switches to the explicit date in that case.
+  const wasYesterday = s && s.occurredOn === engine.addDays(todayStr(), -1);
+  const title = wasYesterday
+    ? "Was this from yesterday's session?"
+    : "Was this from the session the day before?";
+  const lead = !s ? "" : wasYesterday
+    ? `Yesterday you logged ${sessionSummary(s)}. One tap links this entry to it.`
+    : `On ${fmtDay(s.occurredOn, true)} you logged ${sessionSummary(s)}. One tap links this entry to it.`;
+  const panel = el("div", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": title });
+  panel.append(
+    el("h2", { text: title }),
+    el("p", { class: "detail-sub", style: "margin-bottom: 0.9rem", text: lead }),
+    el("div", { class: "sheet-footer" },
+      el("button", {
+        class: "btn primary", type: "button", text: "Link it",
+        onclick: () => {
+          const entry = data.entries.find((x) => x.id === sheet.entryId);
+          if (entry && s) {
+            entry.sessionId = s.id;
+            persist();
+          }
+          closeSheet();
+        },
+      }),
+      el("button", { class: "btn ghost", type: "button", text: "Skip", onclick: closeSheet })
+    )
+  );
+  return panel;
+}
+
 // --------------------------------------------------- about and glossary
 
 function aboutSheet() {
@@ -847,6 +930,10 @@ function aboutSheet() {
       "This is not a diagnosis. It does not know what is wrong with you and it will not guess. It does not predict injuries. Most niggles resolve on their own, and a site that escalates for 10 days is usually a site that then settles down. What this tool can do is show you the record. What that record means is between you and someone qualified to look at you."
     ),
     el("p", {},
+      el("strong", { text: "What the app watches for." }),
+      "Two patterns, and at most one card at a time. A card appears on the Today view when a site is getting worse: niggles on 3 or more days in the last 14, the most recent within the last 5 days at severity 2 of 3 or higher, and the worst severity in the last 7 days higher than the worst in the 7 days before. A card also appears when a site will not go away: logged on 5 or more days in the last 14, at any severity, once at least 10 of those 14 days were observed. Getting worse outranks not going away. Dismissing a card keeps it away for 7 days, unless the site gets worse in the meantime. The Body view stays closed until 14 days have been observed, because frequencies from a thin record mislead."
+    ),
+    el("p", {},
       el("strong", { text: "Things this tool has nothing useful to say about." }),
       "Numbness or pins and needles. Pain that wakes you at night. Swelling, or a joint that gives way. Anything that arrived suddenly with a pop. Those are worth a conversation with a professional, and no amount of logging changes that."
     ),
@@ -857,7 +944,7 @@ function aboutSheet() {
     el("p", { class: "fine" },
       "Your data stays in this browser. It is stored in your browser and is readable by any page on this domain. It is not encrypted and it is not private from software running on this machine. Browsers can also clear this storage after a period of disuse, so the export file is the real home of the data."
     ),
-    el("p", { class: "fine", text: "Niggle Log, version 1. Schema version 1." }),
+    el("p", { class: "fine", text: "Niggle Log, version 1. Schema version 2." }),
     el("div", { class: "sheet-footer" },
       el("button", { class: "btn ghost", type: "button", text: "Close", onclick: closeSheet })
     )
@@ -1009,6 +1096,7 @@ function renderOverlay() {
     }));
     if (ui.sheet.type === "form") overlay.append(formSheet(ui.sheet));
     else if (ui.sheet.type === "session-prompt") overlay.append(sessionPromptSheet(ui.sheet));
+    else if (ui.sheet.type === "link-prompt") overlay.append(linkPromptSheet(ui.sheet));
     else if (ui.sheet.type === "about") overlay.append(aboutSheet());
   }
 
