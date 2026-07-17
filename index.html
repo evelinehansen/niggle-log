@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Niggle Log</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1 class="app-title">Niggle<span class="app-title-accent">Log</span></h1>
+    <div class="header-right">
+      <span id="backup-status" class="backup-status"></span>
+      <button id="btn-export" class="btn" type="button">Export</button>
+      <button id="btn-import" class="btn" type="button">Import</button>
+      <input id="import-file" type="file" accept=".json,application/json" hidden>
+    </div>
+  </header>
+
+  <nav class="tab-row">
+    <div class="tabs" role="tablist" aria-label="Sections">
+      <button class="tab" type="button" role="tab" data-tab="today" aria-selected="true">Today</button>
+      <button class="tab" type="button" role="tab" data-tab="log" aria-selected="false">Log</button>
+      <button class="tab" type="button" role="tab" data-tab="body" aria-selected="false">Body</button>
+    </div>
+    <button id="btn-about" class="btn ghost small" type="button">About</button>
+  </nav>
+
+  <main id="main"></main>
+
+  <div id="overlay"></div>
+  <div id="banner"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
