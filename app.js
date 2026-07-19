@@ -169,18 +169,16 @@ function viewToday() {
   const flag = engine.activeFlag(data.entries, data.dismissals, t);
   if (flag) wrap.append(flagCard(flag));
 
-  if (data.entries.length === 0) {
-    wrap.append(
-      el("div", { class: "empty-state" },
-        el("span", { class: "serif", text: "Log the small things that have not stopped you." }),
-        el("span", { text: "Location, how much it changed what you did, and when." }),
-        el("br"),
-        el("span", { text: "After a couple of weeks, patterns start to be visible." }),
-        el("br"),
-        el("span", { text: "If one spot keeps coming back and gets worse across two weeks, a card will appear here showing you that record." })
-      )
-    );
-  }
+  wrap.append(
+    el("div", { class: "empty-state" },
+      el("span", { class: "serif", text: "Log the small things that have not stopped you." }),
+      el("span", { text: "Location, how much it changed what you did, and when." }),
+      el("br"),
+      el("span", { text: "After a couple of weeks, patterns start to be visible." }),
+      el("br"),
+      el("span", { text: "If one spot keeps coming back and gets worse across two weeks, a card will appear here showing you that record." })
+    )
+  );
 
   const hasNiggleToday = data.entries.some((e) => e.kind === "niggle" && e.occurredOn === t);
   const hasClearToday = data.entries.some((e) => e.kind === "clear" && e.occurredOn === t);
