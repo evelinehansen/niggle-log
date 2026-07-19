@@ -172,11 +172,7 @@ function viewToday() {
   wrap.append(
     el("div", { class: "empty-state" },
       el("span", { class: "serif", text: "Log the small things that have not stopped you." }),
-      el("span", { text: "Location, how much it changed what you did, and when." }),
-      el("br"),
-      el("span", { text: "After a couple of weeks, patterns start to be visible." }),
-      el("br"),
-      el("span", { text: "If one spot keeps coming back and gets worse across two weeks, a card will appear here showing you that record." })
+      el("span", { text: "Location, how much it changed what you did, and when. After a couple of weeks, patterns start to be visible. If one spot keeps coming back and gets worse across two weeks, a card will appear here showing you that record." })
     )
   );
 
