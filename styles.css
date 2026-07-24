@@ -138,9 +138,17 @@ input:focus, textarea:focus, select:focus {
 }
 
 .tab-row {
+  position: relative;
   display: flex; align-items: center; justify-content: space-between;
   max-width: var(--page-max); margin-inline: auto;
   padding: 0 var(--page-pad);
+}
+/* The section divider spans the content only — from the first tab to the About
+   pill — so it begins at the first tab instead of running out into the frame
+   padding on either side. Inset by --page-pad, it stays aligned at both widths. */
+.tab-row::after {
+  content: "";
+  position: absolute; left: var(--page-pad); right: var(--page-pad); bottom: 0;
   border-bottom: 1px solid var(--line);
 }
 .tabs { display: flex; gap: 1.25rem; }
