@@ -151,7 +151,9 @@ input:focus, textarea:focus, select:focus {
   position: absolute; left: var(--page-pad); right: var(--page-pad); bottom: 0;
   border-bottom: 1px solid var(--line);
 }
-.tabs { display: flex; gap: 1.25rem; }
+/* Lift the tabs above the divider ::after so the selected tab's 2px sage
+   underline paints over the 1px line in full, instead of being clipped to 1px. */
+.tabs { display: flex; gap: 1.25rem; position: relative; z-index: 1; }
 .tab {
   font-weight: 500; color: var(--ink-soft); min-height: 44px;
   border: 0; background: transparent; padding: 0.5rem 0; cursor: pointer;
