@@ -20,6 +20,7 @@ const ui = {
   siteKey: null,         // which site the detail view shows
   returnTab: "today",    // where Back from the detail view goes
   sheet: null,           // the open bottom sheet / side panel, or null
+  aboutOpen: false,      // the centered About modal, or null
   glossaryOpen: false,
   dialog: null,          // the open confirm dialog, or null
   logFilter: "all",
@@ -911,9 +912,30 @@ function linkPromptSheet(sheet) {
 
 // --------------------------------------------------- about and glossary
 
-function aboutSheet() {
-  const panel = el("div", { class: "sheet about", role: "dialog", "aria-modal": "true", "aria-label": "About" });
-  panel.append(
+// The element that opened the modal, so focus can return to it on close.
+let aboutTrigger = null;
+
+function openAbout(trigger) {
+  aboutTrigger = trigger || document.getElementById("btn-about");
+  ui.aboutOpen = true;
+  render();
+  // render() has appended the modal, so move focus into it now (open only, not
+  // on later re-renders such as toggling the glossary).
+  const card = document.querySelector(".modal");
+  if (card) card.focus();
+}
+
+function closeAbout() {
+  ui.aboutOpen = false;
+  render();
+  if (aboutTrigger) { aboutTrigger.focus(); aboutTrigger = null; }
+}
+
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function aboutModal() {
+  const card = el("div", { class: "modal about", role: "dialog", "aria-modal": "true", "aria-label": "About Niggle Log", tabindex: "-1" });
+  card.append(
     el("h2", { text: "About Niggle Log" }),
     el("p", {},
       el("strong", { text: "What this is for." }),
@@ -940,10 +962,27 @@ function aboutSheet() {
     ),
     el("p", { class: "fine", text: "Niggle Log, version 1. Schema version 2." }),
     el("div", { class: "sheet-footer" },
-      el("button", { class: "btn ghost", type: "button", text: "Close", onclick: closeSheet })
+      el("button", { class: "btn ghost", type: "button", text: "Close", onclick: closeAbout })
     )
   );
-  return panel;
+
+  const backdrop = el("div", {
+    class: "modal-backdrop",
+    onclick: (e) => { if (e.target === backdrop) closeAbout(); },
+    onkeydown: (e) => {
+      if (e.key !== "Tab") return;
+      const f = [...card.querySelectorAll(FOCUSABLE)];
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === card)) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
+    },
+  }, card);
+
+  return backdrop;
 }
 
 function glossarySheet() {
@@ -1091,7 +1130,10 @@ function renderOverlay() {
     if (ui.sheet.type === "form") overlay.append(formSheet(ui.sheet));
     else if (ui.sheet.type === "session-prompt") overlay.append(sessionPromptSheet(ui.sheet));
     else if (ui.sheet.type === "link-prompt") overlay.append(linkPromptSheet(ui.sheet));
-    else if (ui.sheet.type === "about") overlay.append(aboutSheet());
+  }
+
+  if (ui.aboutOpen) {
+    overlay.append(aboutModal());
   }
 
   if (ui.glossaryOpen) {
@@ -1176,9 +1218,8 @@ document.querySelectorAll(".tab").forEach((t) => {
   });
 });
 
-document.getElementById("btn-about").addEventListener("click", () => {
-  ui.sheet = { type: "about" };
-  render();
+document.getElementById("btn-about").addEventListener("click", (ev) => {
+  openAbout(ev.currentTarget);
 });
 
 document.getElementById("btn-export").addEventListener("click", doExport);
@@ -1197,6 +1238,7 @@ document.addEventListener("keydown", (ev) => {
   if (ev.key !== "Escape") return;
   if (ui.dialog) { ui.dialog = null; render(); }
   else if (ui.glossaryOpen) { ui.glossaryOpen = false; render(); }
+  else if (ui.aboutOpen) closeAbout();
   else if (ui.sheet) closeSheet();
 });
 
