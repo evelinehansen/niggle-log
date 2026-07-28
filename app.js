@@ -636,11 +636,12 @@ function formSheet(sheet) {
   panel.append(section("What did it feel like? (optional)", senRow));
 
   // Note: capped so it never becomes a journal.
-  const noteInput = el("input", {
-    type: "text", class: "field-wide", maxlength: "140",
-    value: f.note, placeholder: "Only on stairs going down.",
+  const noteInput = el("textarea", {
+    class: "field-wide note-field", maxlength: "140", rows: "3",
+    placeholder: "Only on stairs going down.",
     oninput: (ev) => { f.note = ev.target.value; },
   });
+  noteInput.value = f.note;
   panel.append(section("Note (optional)", noteInput));
 
   // Which day: today, yesterday, or a picked date. Back-dating is required.

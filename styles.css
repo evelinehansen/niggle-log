@@ -356,6 +356,12 @@ main {
 
 .note-count { color: var(--ink-faint); font-size: 0.78rem; margin-top: 0.25rem; }
 .field-wide { width: 100%; }
+/* The note is short by design, but a long one should still be readable in
+   full rather than scrolling sideways in a one-line box. */
+.note-field {
+  display: block; resize: vertical; min-height: 5.2rem;
+  line-height: 1.45; white-space: pre-wrap; overflow-wrap: break-word;
+}
 
 /* Centered modal (the About dialog). The backdrop is the scrim and it centers
    the card; the card caps at 440px and runs full width minus padding on mobile. */
