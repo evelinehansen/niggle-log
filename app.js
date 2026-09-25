@@ -331,7 +331,7 @@ function viewLog() {
   return wrap;
 }
 
-function logRow(e) {
+function logRow(e, { showNote = false } = {}) {
   if (e.kind === "clear") {
     return el("button", {
       class: "log-row clear-row", type: "button",
@@ -357,7 +357,13 @@ function logRow(e) {
       el("span", { class: "row-site", text: engine.siteLabel(engine.siteKey(e)) }),
       el("span", { class: "row-date", text: fmtDay(e.occurredOn, true) })
     ),
-    el("div", { class: "row-sub", text: bits.join(" · ") })
+    el("div", { class: "row-sub", text: bits.join(" · ") }),
+    showNote
+      ? el("div", {
+          class: e.note ? "row-note" : "row-note row-note-empty",
+          text: e.note ? `Note: ${e.note}` : "No note",
+        })
+      : null
   );
 }
 
@@ -452,7 +458,7 @@ function viewSiteDetail() {
     .filter((e) => e.kind === "niggle" && engine.siteKey(e) === key)
     .sort((a, b) => (a.occurredOn < b.occurredOn ? 1 : -1));
   const list = el("div", { class: "row-list" });
-  for (const e of entries) list.append(logRow(e));
+  for (const e of entries) list.append(logRow(e, { showNote: true }));
   wrap.append(list);
 
   return wrap;

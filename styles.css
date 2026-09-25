@@ -259,6 +259,8 @@ main {
 .log-row .row-site { font-weight: 600; }
 .log-row .row-date { color: var(--ink-soft); font-size: 0.82rem; white-space: nowrap; }
 .log-row .row-sub { color: var(--ink-soft); font-size: 0.85rem; }
+.log-row .row-note { color: var(--ink-soft); font-size: 0.85rem; overflow-wrap: anywhere; }
+.log-row .row-note-empty { color: var(--ink-faint); }
 .log-row.clear-row .row-site { color: var(--ink-faint); font-weight: 500; }
 
 .log-filter { display: flex; align-items: center; gap: 0.5rem; }
